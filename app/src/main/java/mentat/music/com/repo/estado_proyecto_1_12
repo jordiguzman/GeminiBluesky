@@ -1,0 +1,73 @@
+🟢 ESTADO DEL PROYECTO (VERSION ESTABLE - AYER)
+
+1. ARQUITECTURA GENERAL
+
+Tipo: Aplicación Android Nativa (Kotlin + Jetpack Compose).
+
+Patrón: "Human-in-the-loop" (La IA propone, el humano dispone).
+
+Backend de Datos: Firebase Firestore (Colección respuestas_test).
+
+Cerebro: Gemini 2.5 Flash (vía API Google AI Studio).
+
+Ojos: Bluesky API (vía Retrofit).
+
+2. ESTRUCTURA DE ARCHIVOS Y CLASES
+
+MainActivity.kt: El corazón monolítico. Contiene:
+
+Inicialización de Firebase y Gemini.
+
+CoroutineScope: El bucle que llama a Bluesky, procesa con IA y guarda en Firebase.
+
+PantallaPrincipal: La UI con la lista LazyColumn.
+
+TarjetaBorrador: El diseño visual de cada propuesta.
+
+model/Borrador.kt: La Data Class que define qué guardamos en Firebase.
+
+Campos: id, opcion, tipo, texto, postOriginal, estado, fecha.
+
+repository/BlueskyRepository.kt: El encargado de hablar con Bluesky.
+
+Funciones: login, traerTimeline, traerDiscover, traerInteracciones.
+
+utils/BrainLoader.kt: Lee el archivo JSON de la carpeta assets.
+
+utils/SocialUtils.kt: Calcula si un usuario es Desconocido, Seguidor o Amigo Mutuo.
+
+constants/AppConfig.kt: Guarda API Keys y nombres de modelos.
+
+assets/cerebro_mentat.json: El archivo de texto que define tu personalidad (Tono, Odios, Gustos, Biografía).
+
+3. FLUJO DE DATOS (THE LOOP)
+
+Lectura: La App arranca -> Llama a traerInteracciones (o Discover/Timeline según la prueba).
+
+Análisis Social: Detecta si sigues al autor (viewer.following).
+
+Generación:
+
+Carga el JSON (BrainLoader).
+
+Construye un Prompt inyectando: JSON + Tono Social + Texto del Post.
+
+Envía a Gemini.
+
+Guardado: Recibe la respuesta -> Crea objeto Borrador -> Lo guarda en Firebase con estado "pendiente".
+
+Visualización: La pantalla escucha a Firebase en tiempo real -> Muestra la tarjeta nueva.
+
+Acción Humana:
+
+Botón Descartar: Borra el documento de Firebase -> Desaparece de la pantalla.
+
+Botón Publicar: Actualiza el documento a estado="aprobado" -> Desaparece de la pantalla (pero sigue en la BD).
+
+4. LÓGICA ACTUAL
+
+Filtros: Muy básicos (o inexistentes en las últimas pruebas). Deja pasar casi todo para testear.
+
+URLs: No implementadas o muy básicas (texto plano).
+
+Memoria: Inexistente. Si reinicias la app, vuelve a procesar lo mismo si la API se lo devuelve.

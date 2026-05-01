@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "690511573114",
+    "project_id": "geminibluesky-2718d",
+    "storage_bucket": "geminibluesky-2718d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:690511573114:android:25f5aa877173ecb72ccbc3",
+        "android_client_info": {
+          "package_name": "mentat.music.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2y8zFFzTTrQtYTYIk4BcYiyxuZi8FdpM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

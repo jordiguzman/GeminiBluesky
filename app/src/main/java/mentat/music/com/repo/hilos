@@ -1,0 +1,33 @@
+// --- PASO 1: UNIFICACIÓN AGRESIVA ---
+                        val esReply = item.reply != null
+                        val rootUri = item.reply?.root?.uri
+                        val parentUri = item.reply?.parent?.uri
+
+                        // Prioridad total: Root > Parent > Post Actual
+                        val uriParaId = rootUri ?: parentUri ?: post.uri
+
+                    // Forzamos el prefijo HILO_ si hay CUALQUIER indicio de respuesta
+                        val prefijo = if (esReply || rootUri != null || parentUri != null) "HILO_" else ""
+                        val docId = prefijo + uriParaId.replace("/", "_").replace(":", "_")
+
+                        Log.d("MENTAT_CHECK", "--- NUEVO ITEM ---")
+                        Log.d("MENTAT_CHECK", "Post: ${post.uri}")
+                        Log.d("MENTAT_CHECK", "ID Final: $docId")
+
+                        // --- PASO 2: ADUANA INTELIGENTE ---
+                        val snapshot = withContext(Dispatchers.IO) {
+                            try { Tasks.await(db.collection(COLECCION_CAZA).document(docId).get()) } catch (e: Exception) { null }
+                        }
+
+                        if (snapshot != null && snapshot.exists()) {
+                            val estado = snapshot.getString("estado") ?: ""
+                            val texto = snapshot.getString("texto") ?: ""
+
+                            // Si el post ya existe y tiene contenido o está aprobado/rechazado, lo saltamos para ahorrar
+                            if (estado != "pendiente" || texto.isNotEmpty()) {
+                                Log.d("MENTAT_CHECK", "ID $docId ya existe con estado $estado. Saltando...")
+                                continue
+                            }
+                            // Si llegamos aquí, es que el ID existe pero está "vacío" o corrupto, así que permitimos que siga
+                            Log.d("MENTAT_CHECK", "ID $docId existe pero está incompleto. Reintentando...")
+                        }

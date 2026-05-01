@@ -1,0 +1,19 @@
+# 📝 HOJA DE RUTA: PENDIENTE POR RESOLVER
+
+## 1. ELIMINACIÓN DE REPETICIONES (MARCA DE RECHAZO)
+- Actualmente, al borrar una tarjeta de la pantalla, el sistema la vuelve a detectar en el siguiente escaneo.
+- TAREA: Modificar la acción de "Archivar/Borrar" para que no elimine el documento de Firebase, sino que cambie su estado a 'rechazado'. El escáner deberá ignorar los 'rechazados'.
+
+## 2. REFINAMIENTO DE HILOS (CONSOLIDACIÓN DE CARDS)
+- Problema: Se generan tarjetas separadas para el padre y el hijo, duplicando información visual.
+- TAREA: Implementar lógica en el escáner para que, si un post es un 'padre' de un hilo ya procesado, no genere una tarjeta independiente.
+
+## 3. APLICACIÓN DE LAS NUEVAS REGLAS DE IDIOMA
+- TAREA: Sustituir en `construirPromptDinamico` el bloque de idioma por la nueva jerarquía de Juan Mentat:
+    - Catalán/Euskera/Gallego -> Castellano.
+    - Otros extranjeros -> Inglés.
+    - Castellano/Inglés -> Mantener original.
+
+## 4. GESTIÓN DE CUOTA (STAMINA DE LA IA)
+- Problema: El error `QuotaExceeded` detiene el funcionamiento por exceso de llamadas.
+- TAREA: Implementar un retardo (delay) más inteligente entre posts o reducir el número de posts analizados de 40 a un número menor si la cuota es muy ajustada.

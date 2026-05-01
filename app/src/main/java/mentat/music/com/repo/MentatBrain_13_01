@@ -1,0 +1,236 @@
+package mentat.music.com.ai
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.util.Log
+import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.content
+import mentat.music.com.utils.BrainLoader
+import mentat.music.com.utils.HardFilter
+
+class MentatBrain(
+    private val context: Context,
+    private val model: GenerativeModel
+) {
+    private var jsonPersonalidad: String = "{}"
+
+    init {
+        inicializarCerebro()
+    }
+
+    private fun inicializarCerebro() {
+        try {
+            jsonPersonalidad = BrainLoader.cargarJSON(context)
+        } catch (e: Exception) {
+            Log.e("MENTAT_BRAIN", "❌ Error cargando personalidad", e)
+            jsonPersonalidad = "{ \"error\": \"Default mode\" }"
+        }
+    }
+
+    /**
+     * MODO CAZA (TIMELINE)
+     */
+    suspend fun evaluarCaza(
+        autor: String,
+        textoPost: String,
+        perfilContexto: String = "",
+        imagen: Bitmap? = null,
+        idioma: String = "auto"
+    ): String {
+
+        // 🛡️ 1. Hard Filter
+        if (HardFilter.esContenidoProhibido(textoPost)) {
+            Log.d("MENTAT_BRAIN", "⛔ Bloqueado por HardFilter local.")
+            return "SKIP"
+        }
+
+        // 🚀 PROMPT DINÁMICO
+        val prompt = construirPromptDinamico(autor, textoPost, perfilContexto, idioma)
+
+        // Debug Logs
+        Log.d("VER_PROMPT", "\n⚠️⚠️⚠️ --- PROMPT DINÁMICO --- ⚠️⚠️⚠️")
+        Log.d("VER_PROMPT", prompt)
+        Log.d("VER_PROMPT", "⚠️⚠️⚠️ --------------------------- ⚠️⚠️⚠️\n")
+
+        val logInput = """
+        📥 --- INPUT PARA GEMINI (@$autor) ---
+        $textoPost
+        ---------------------------------------
+        """.trimIndent()
+        Log.d("DEBUG_INPUT_IA", logInput)
+
+        return try {
+            val response = model.generateContent(
+                content {
+                    if (imagen != null) image(imagen)
+                    text(prompt)
+                }
+            )
+
+            val rawText = response.text?.trim() ?: "SKIP"
+            Log.d("DEBUG_OUTPUT_IA", "🤖 SALIDA GEMINI: $rawText")
+
+            val textoLimpio = rawText.replaceFirstChar { it.uppercase() }
+
+            if (textoLimpio.uppercase().contains("SKIP")) "SKIP" else textoLimpio
+        } catch (e: Exception) {
+            Log.e("MENTAT_BRAIN", "Error IA en Caza", e)
+            "SKIP"
+        }
+    }
+
+    /**
+     * MODO BUZÓN (NOTIFICACIONES)
+     */
+    suspend fun evaluarNotificacion(
+        autor: String,
+        texto: String,
+        nivelSocial: String,
+        contextoPadre: String,
+        imagen: Bitmap? = null
+    ): String {
+
+        if (HardFilter.esContenidoProhibido(texto)) {
+            return "ACTION_ARCHIVE"
+        }
+
+        val bloqueContexto = if (contextoPadre.isNotEmpty()) "CONTEXT (Reply to): \"$contextoPadre\"" else ""
+
+        val prompt = """
+        SYSTEM IDENTITY:
+        $jsonPersonalidad
+
+        TASK: Reply to a user mentioning me.
+        - User: @$autor ($nivelSocial)
+        - Message: "$texto"
+        $bloqueContexto
+
+        INSTRUCTIONS:
+        1. Be warm and friendly.
+        2. If the conversation is over (e.g., they said "Thanks"), output "ACTION_LIKE".
+        3. Keep it short.
+        """
+
+        return try {
+            val response = model.generateContent(
+                content {
+                    if (imagen != null) image(imagen)
+                    text(prompt)
+                }
+            )
+            response.text?.trim() ?: "ACTION_LIKE"
+        } catch (e: Exception) {
+            "ACTION_LIKE"
+        }
+    }
+
+    suspend fun analizarPerfil(
+        handle: String,
+        bio: String,
+        ultimosPosts: String,
+        relacion: String
+    ): String {
+        return ""
+    }
+
+
+    // 🧠 VERSIÓN 6.1: AJUSTE DE PERSONALIDAD (OPINIONATED)
+    private fun construirPromptDinamico(autor: String, textoPost: String, perfilContexto: String, idiomaForzado: String): String {
+
+        // 1. MODOS
+        val esMusica = textoPost.contains("[CONTEXTO EXTERNO - BANDCAMP]") ||
+                textoPost.contains("[CONTEXTO EXTERNO - YOUTUBE]") ||
+                textoPost.contains("[CONTEXTO EXTERNO - SPOTIFY]")
+        val esNoticia = textoPost.contains("[CONTEXTO EXTERNO - WEB ARTICLE]")
+
+        // 2. IDIOMA
+        val reglaIdioma = """
+        INSTRUCCIÓN DE IDIOMA (OBLIGATORIA):
+        1. Si el POST está en Euskera, Catalán o Gallego: Responde SIEMPRE en ESPAÑOL.
+        2. Si el POST NO está en Español ni en Inglés: Responde SIEMPRE en INGLÉS.
+        3. Si el POST está en Español: Responde en ESPAÑOL.
+        4. Si el POST está en Inglés: Responde en INGLÉS.
+        * Prohibido responder en idiomas regionales o extranjeros que no sean Español o Inglés.
+    """.trimIndent()
+
+        // 3. PIEZA BASE (Más estricta con el "No Parroting")
+        val identidadBase = """
+            SYSTEM IDENTITY:
+            Name: Juan Mentat
+            Role: Musician, Coder & Observer based in Barcelona.
+            Tone: Subjective, concise, slightly critical (not neutral).
+
+            GLOBAL RULES:
+            1. NO PARROTING: Do not rephrase or summarize the input. REACT to it.
+            2. NO SLANG: Write full sentences. Start with Uppercase. No exclamation marks (!).
+            3. AVOID CYNICISM: Be constructive but have an opinion.
+            4. NEVER describe the image unless asked.
+        """.trimIndent()
+
+        // 4. INSTRUCCIONES ESPECIALES (Aquí está el cambio clave)
+        val instruccionesEspeciales = when {
+            esMusica -> """
+                MODE: MUSIC CRITIC
+                - GOAL: Listen/Look and give a personal impression.
+                - FORBIDDEN: Do not say "This is a song by...". We know.
+                - ACTION: If you like it, praise the vibe. If it's generic, output "SKIP".
+            """.trimIndent()
+
+            esNoticia -> """
+                MODE: OPINIONATED CURATOR
+                - STRICTLY FORBIDDEN: Do NOT summarize the article. Do NOT say "This article discusses...".
+                - GOAL: Assume the user can read the title. Provide a specific opinion, a critique, or a relation to art/tech/culture.
+                - ATTITUDE: You have read it and you have a stance. Be subjective.
+                - FILTER: If it is US Politics or Hate/Drama -> Output "SKIP".
+                - MAX LENGTH: 1 sharp sentence.
+            """.trimIndent()
+
+            else -> """
+                MODE: CASUAL SOCIAL INTERACTION
+                - Length: 1 short sentence (Max 15 words).
+                - Don't just agree. Add a small value or a witty remark.
+                - STRICT FILTER: No Politics, No Drama, No Boring stuff -> Output "SKIP".
+            """.trimIndent()
+        }
+
+        val infoUsuario = if (perfilContexto.isNotEmpty()) "User Vibe: $perfilContexto" else "User Vibe: Unknown"
+
+        // 5. ENSAMBLAJE
+        return """
+            $identidadBase
+
+            $instruccionesEspeciales
+
+            $infoUsuario
+
+            INPUT POST (Author: @$autor):
+            $textoPost
+
+            $reglaIdioma
+
+            YOUR REPLY:
+        """.trimIndent()
+    }
+}
+
+// 🕵️‍♂️ Detector de idioma (Se mantiene igual)
+fun detectarIdioma(texto: String): String {
+    val palabras = texto.lowercase().split(" ", "\n", ".", ",").filter { it.isNotEmpty() }
+
+    val englishTriggers = setOf("the", "and", "is", "to", "of", "in", "it", "you", "my", "for")
+    val spanishTriggers = setOf("el", "la", "y", "es", "de", "en", "que", "un", "los", "por")
+
+    var scoreEn = 0
+    var scoreEs = 0
+
+    palabras.forEach { p ->
+        if (englishTriggers.contains(p)) scoreEn++
+        if (spanishTriggers.contains(p)) scoreEs++
+    }
+
+    return when {
+        scoreEn > scoreEs -> "en"
+        scoreEs > scoreEn -> "es"
+        else -> "auto"
+    }
+}

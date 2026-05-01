@@ -1,0 +1,33 @@
+# 🎯 INFORME DEL PROYECTO: JUAN MENTAT (v1.0)
+
+## 1. DEFINICIÓN Y PROPÓSITO
+Juan Mentat es un agente inteligente para Bluesky diseñado como un "Cazador de Contenido" (Content Hunter). Su función es escanear el timeline de usuarios seguidos (Following), identificar publicaciones interesantes de música, tecnología o reflexión, y preparar borradores de respuesta inteligentes (cazas) para que el usuario humano los apruebe o rechace.
+
+## 2. ARQUITECTURA DE CLASES Y MÓDULOS
+
+### A. Interfaz de Usuario (UI)
+* **TimelineScreen.kt**: El corazón de la app. Gestiona el bucle de escaneo automático (cada 25 min), la visualización de las tarjetas de caza y la interacción con el usuario (aprobar/borrar/regenerar).
+* **TarjetaBorrador.kt**: Componente visual que muestra el post original (con su contexto) y la propuesta de la IA.
+
+### B. El Cerebro (AI)
+* **MentatBrain.kt**: Gestiona la comunicación con Google Gemini.
+    * `construirPromptDinamico()`: Define la identidad de Juan Mentat y aplica filtros críticos (Antipolítica, concisión, no repetir como un loro).
+* **detectarIdioma.kt**: Función auxiliar para identificar si el post es ES o EN (ahora delegada también a la IA).
+
+### C. Comunicaciones (Network & API)
+* **BlueskyApi.kt**: Interfaz de Retrofit que define las llamadas a los XRPC de Bluesky (Timeline, GetThread, Likes).
+* **ThreadFetcher.kt**: Clase especializada en "subir por el hilo". Recibe una respuesta y busca los 5 mensajes anteriores para dar contexto a la IA.
+* **BlueskyModels.kt**: Definición de todas las estructuras de datos (PostView, ThreadView, FeedResponse, etc.).
+
+### D. Persistencia y Datos (Repositories)
+* **BlueskyRepository.kt**: Maneja la sesión (JWT Token) y descarga el contenido crudo de la red social.
+* **BuzonRepository.kt**: Gestiona la base de datos Firebase (Cloud Firestore).
+* **ProfileRepository.kt**: Almacena análisis de perfiles de otros usuarios para que la IA sepa con quién está hablando.
+
+## 3. FLUJO DE TRABAJO (ESCANEAR TIMELINE)
+1. El sistema descarga los 40 últimos posts del feed "Following".
+2. Filtra posts del propio usuario y posts ya procesados.
+3. Si el post es una respuesta (Reply), `ThreadFetcher` recupera la conversación previa.
+4. Se extraen imágenes y enlaces reales (Youtube, Bandcamp, Web).
+5. Se envía todo al `MentatBrain` junto con las reglas de idioma.
+6. Si la IA no genera un "SKIP", se guarda un documento en Firebase (`data_caza`) como "pendiente".
